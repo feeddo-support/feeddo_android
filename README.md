@@ -1,44 +1,51 @@
 # Feeddo Android SDK
 
-Native Android SDK (Kotlin + Jetpack Compose) for **Feeddo** — AI-powered customer support, feedback, and community engagement.
+Drop a live AI support chat, customer feedback, and community board into your Android app with just a few lines of Kotlin.
 
-Maintains 100% architectural and feature parity with [`feeddo_flutter`](../feeddo_flutter).
+## What is Feeddo?
+
+Feeddo is an AI-powered customer support and feedback widget for your Android app — a modern, lightweight, native **Intercom alternative for Android**:
+
+- **AI Support Agent** — Answers customer inquiries instantly using your docs and knowledge base.
+- **Auto Support Tickets** — Seamlessly creates support tickets when an issue requires human attention.
+- **Live Chat** — Chat in real-time with users with typing indicators and read receipts.
+- **Smart Bug Tracking** — Collects details and automatically files bug reports.
+- **Feature Requests & Community Board** — Let users request features, vote on priorities, and leave comments.
+- **In-App Notification Banners** — Slide-in top banners for unread messages and system updates.
 
 ---
 
-## Features
+## Screenshots
 
-- **Customer Support Chat**: Real-time bidirectional WebSocket communication (`wss://api.feeddo.dev/api/chat/ws`), typing indicators, message delivery, and read receipts.
-- **Rich Media & Attachments**: Image attachments with upload and preview.
-- **Embedded Task & Ticket Cards**: Direct support for interactive task cards and support ticket references within chat messages.
-- **Satisfaction Ratings**: Post-resolution conversation rating widget (1-5 stars).
-- **Community Board**: Public feature requests and bug reports with upvoting, comment threads, attachments, filtering (All, Features, Bugs), and sorting (Most Upvoted, Recent).
-- **Support Tickets**: Support ticket list and detail sheet with conversation linking.
-- **In-App Notification Banners**: Slide-in top banners for unread messages and system updates with auto-dismiss and tap handling.
-- **Unread Message Counter**: Live `StateFlow<Int>` counter for badges.
-- **Theming**: Dark and Light themes with full custom color overrides.
-- **Offline & Identity Management**: Persistent UUID v4 user identification, automatic device info collection, and backend synchronization.
+<p align="center">
+  <img src="feeddo_home_screen.png" width="260" alt="Feeddo Home Screen" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="chat_screen.png" width="260" alt="Feeddo Chat Screen" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="community_screen.png" width="260" alt="Feeddo Community Board" />
+</p>
 
 ---
 
 ## Installation
 
-Add the Feeddo SDK module or AAR to your Gradle build:
+Add the Feeddo SDK dependency to your Android project:
 
-### Gradle (Kotlin DSL)
+### 1. In `settings.gradle.kts`:
 ```kotlin
-// settings.gradle.kts
 dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
     }
 }
+```
 
-// build.gradle.kts (app)
+### 2. In your app `build.gradle.kts`:
+```kotlin
 dependencies {
     implementation(project(":feeddo-sdk"))
-    // Or if using Maven / AAR:
+    // Or via Maven Central / AAR:
     // implementation("dev.feeddo:feeddo-sdk:1.0.0")
 }
 ```
@@ -47,13 +54,14 @@ dependencies {
 
 ## Quickstart
 
-### 1. Initialize Feeddo
+### 1. Get Your API Key
+Sign up at [feeddo.dev](https://feeddo.dev) and grab your API key from the dashboard.
 
-Initialize the SDK at app launch (e.g. in your `Application` class or main `Activity`):
+### 2. Initialize Feeddo
+Initialize the SDK at app launch (e.g., in your `Application` or main `Activity`):
 
 ```kotlin
 import dev.feeddo.sdk.Feeddo
-import dev.feeddo.sdk.models.FeeddoPushProvider
 import dev.feeddo.sdk.theme.FeeddoTheme
 
 class MainActivity : ComponentActivity() {
@@ -63,7 +71,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             val userId = Feeddo.init(
                 context = this@MainActivity,
-                apiKey = "YOUR_FEEDDO_API_KEY",
+                apiKey = "YOUR_FEEDDO_API_KEY", // Get from feeddo.dev
                 userName = "Jane Doe",
                 email = "jane@example.com",
                 userSegment = "premium",
@@ -76,66 +84,81 @@ class MainActivity : ComponentActivity() {
 }
 ```
 
-### 2. Launch the Support Home Screen
-
-Open the full support interface with greeting, recent activity, quick actions, and chat:
+### 3. Open Support Home
+Launch the complete support center (chat, recent conversations, tickets, and FAQs):
 
 ```kotlin
 Feeddo.show(context)
 ```
 
-### 3. Open Community Board
-
-Directly open the Community Board (Feature Requests & Bug Reports):
+### 4. Open Community Board
+Open feature requests and bug reports directly:
 
 ```kotlin
 Feeddo.showCommunityBoard(context)
 ```
 
-### 4. Show In-App Banner Notification
+---
 
-Show a banner at the top of the current screen:
+## Push Notifications (FCM)
 
-```kotlin
-Feeddo.showInAppNotification(
-    activity = this,
-    title = "New message from Support",
-    message = "We have replied to your inquiry.",
-    theme = FeeddoTheme.dark()
-)
-```
+Feeddo supports remote push notifications via Firebase Cloud Messaging (FCM). When the app is in the foreground, Feeddo automatically presents an in-app banner; when in the background, a system notification is shown.
 
-### 5. Handle Push Notification Tap
-
-Handle background or push notification clicks (e.g. FCM payload):
+### 1. Setup Firebase Messaging Service
+Create a service extending `FirebaseMessagingService`:
 
 ```kotlin
-Feeddo.handleNotificationTap(
-    context = context,
-    data = remoteMessage.data
-)
+class MyFirebaseMessagingService : FirebaseMessagingService() {
+
+    override fun onNewToken(token: String) {
+        super.onNewToken(token)
+        CoroutineScope(Dispatchers.IO).launch {
+            Feeddo.registerPushToken(token, FeeddoPushProvider.FCM)
+        }
+    }
+
+    override fun onMessageReceived(remoteMessage: RemoteMessage) {
+        super.onMessageReceived(remoteMessage)
+
+        if (Feeddo.isAppInForeground) {
+            // App in foreground: show Feeddo in-app overlay banner
+            Feeddo.handleForegroundNotification(
+                data = remoteMessage.data,
+                title = remoteMessage.notification?.title,
+                message = remoteMessage.notification?.body
+            )
+        } else {
+            // App in background: show system tray notification
+            showSystemNotification(remoteMessage)
+        }
+    }
+}
 ```
 
-### 6. Register Push Token (FCM / OneSignal)
+### 2. Handle Notification Taps
+In your main activity's `onCreate` and `onNewIntent`:
 
 ```kotlin
-Feeddo.registerPushToken(
-    pushToken = token,
-    pushProvider = FeeddoPushProvider.FCM
-)
+override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    handlePushIntent(intent)
+}
+
+private fun handlePushIntent(intent: Intent?) {
+    val extras = intent?.extras ?: return
+    val dataMap = extras.keySet().associateWith { extras.getString(it) }
+
+    if (dataMap.containsKey("conversationId") || dataMap.containsKey("taskId") || dataMap.containsKey("type")) {
+        lifecycleScope.launch {
+            Feeddo.handleNotificationTap(this@MainActivity, dataMap)
+        }
+    }
+}
 ```
 
-### 7. Update User Profile
+---
 
-```kotlin
-Feeddo.updateUser(
-    userName = "Jane Smith",
-    email = "jane.smith@example.com",
-    customAttributes = mapOf("plan" to "enterprise")
-)
-```
-
-### 8. Live Unread Message Count
+## Unread Message Badge
 
 Observe unread messages in real-time in Jetpack Compose:
 
@@ -152,7 +175,7 @@ if (unreadCount > 0) {
 
 ## Theming
 
-Feeddo supports dark and light modes out of the box, as well as full color customization:
+Feeddo supports Dark and Light themes out of the box, as well as full custom palettes:
 
 ```kotlin
 val customTheme = FeeddoTheme(
@@ -171,49 +194,3 @@ val customTheme = FeeddoTheme(
 
 Feeddo.show(context, theme = customTheme)
 ```
-
----
-
-## Project Structure
-
-```
-feeddo_android/
-├── feeddo-sdk/                 # Core Android Library (AAR)
-│   ├── src/main/java/dev/feeddo/sdk/
-│   │   ├── Feeddo.kt           # Public API facade
-│   │   ├── FeeddoInternal.kt   # Core SDK coordinator
-│   │   ├── config/             # Config & endpoint URLs
-│   │   ├── models/             # Data models & JSON serialization
-│   │   ├── network/            # ApiService & WebSocketService
-│   │   ├── service/            # ConversationService & state
-│   │   ├── theme/              # FeeddoTheme & FeeddoColors
-│   │   ├── ui/
-│   │   │   ├── FeeddoActivity.kt
-│   │   │   ├── FeeddoCommunityActivity.kt
-│   │   │   ├── FeeddoChatActivity.kt
-│   │   │   ├── FeeddoInAppNotificationManager.kt
-│   │   │   ├── screens/        # Compose Screens (Home, Chat, Messages, Tickets, Tasks)
-│   │   │   └── components/     # Reusable UI widgets (Bubbles, Cards, Sheets, Input)
-│   │   └── utils/              # StorageHelper & DeviceInfoHelper
-│   └── src/test/java/          # Unit tests
-├── sample-app/                 # Demo Application
-│   └── src/main/java/dev/feeddo/sample/
-│       └── MainActivity.kt
-└── gradle/                     # Gradle wrapper & Version catalog
-```
-
----
-
-## Build & Test
-
-```bash
-# Run unit tests
-./gradlew test
-
-# Assemble Debug APK & AAR
-./gradlew assembleDebug
-
-# Assemble Release AAR
-./gradlew :feeddo-sdk:assembleRelease
-```
-
