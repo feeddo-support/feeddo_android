@@ -29,14 +29,18 @@ Feeddo is an AI-powered customer support and feedback widget for your Android ap
 
 ## Installation
 
-Add the Feeddo SDK dependency to your Android project:
+Add the Feeddo SDK to your Android project via **JitPack**:
 
 ### 1. In `settings.gradle.kts`:
+Add the JitPack maven repository to your `dependencyResolutionManagement`:
+
 ```kotlin
 dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
         mavenCentral()
+        maven { url = uri("https://jitpack.io") }
     }
 }
 ```
@@ -44,9 +48,7 @@ dependencyResolutionManagement {
 ### 2. In your app `build.gradle.kts`:
 ```kotlin
 dependencies {
-    implementation(project(":feeddo-sdk"))
-    // Or via Maven Central / AAR:
-    // implementation("dev.feeddo:feeddo-sdk:1.0.0")
+    implementation("com.github.feeddo-support:feeddo_android:1.0.0")
 }
 ```
 

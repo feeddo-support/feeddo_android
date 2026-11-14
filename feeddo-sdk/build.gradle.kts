@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
+    `maven-publish`
 }
 
 android {
@@ -33,6 +34,30 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+        }
+    }
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            register<MavenPublication>("release") {
+                from(components["release"])
+                groupId = "com.github.feeddo-support"
+                artifactId = "feeddo-sdk"
+                version = "1.0.0"
+            }
+            register<MavenPublication>("feeddoAndroid") {
+                from(components["release"])
+                groupId = "com.github.feeddo-support"
+                artifactId = "feeddo_android"
+                version = "1.0.0"
+            }
+        }
     }
 }
 
